@@ -1415,6 +1415,36 @@ export default function AdminPanel() {
     })
   }
 
+  const handleRestoreRecord = ({ entityName, restore, refresh }) => {
+    setReasonModal({
+      isOpen: true,
+      title: `Reactivar ${entityName}`,
+      question: `Indica el motivo por el cual se reactiva ${entityName.toLowerCase()}`,
+      callback: async (motivo) => {
+        try {
+          const response = await restore(motivo)
+          if (response?.success === false) {
+            showNotification(response.message || `No se pudo reactivar ${entityName.toLowerCase()}`, 'error')
+            playError()
+            return
+          }
+          await refresh()
+          showNotification(`${entityName} reactivado correctamente`, 'success')
+        } catch (error) {
+          console.error(`Error reactivando ${entityName.toLowerCase()}:`, error)
+          showNotification(
+            error?.response?.data?.message || error?.response?.data?.error || `Error reactivando ${entityName.toLowerCase()}`,
+            'error',
+          )
+          playError()
+        } finally {
+          setReasonModal((current) => ({ ...current, isOpen: false }))
+        }
+      },
+      cancelCallback: () => setReasonModal((current) => ({ ...current, isOpen: false })),
+    })
+  }
+
   // Filtra la lista de usuarios según el texto ingresado en el buscador.
   const filteredUsers = users.filter((usuario) => {
     if (!filtroUsuario) return true
@@ -2928,7 +2958,7 @@ export default function AdminPanel() {
     if (etapasFiltradas.length === 0) {
       return (
         <tr className="data-item">
-          <td colSpan={etapasEstado === 'ACTIVO' && isSelectedCultivoActivo ? 6 : 5} style={{ textAlign: 'center' }}>
+          <td colSpan={etapasEstado === 'ANULADO' || (etapasEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 6 : 5} style={{ textAlign: 'center' }}>
             No se encontraron registros asociados.
           </td>
         </tr>
@@ -2951,14 +2981,32 @@ export default function AdminPanel() {
               {etapa.estado.replace('-', ' ')}
             </span>
           </td>
-          {etapasEstado === 'ACTIVO' && isSelectedCultivoActivo && (
+          {etapasEstado === 'ACTIVO' && isSelectedCultivoActivo ? (
             <td data-field="acciones">
               <div className="action-buttons">
                 <button type="button" className="btn-icon btn-edit" title="Editar" onClick={() => handleOpenEditEtapa(etapa)}>{'\u270F\uFE0F'}</button>
                 <button type="button" className="btn-icon btn-delete" title="Anular" onClick={() => handleDeleteEtapa(etapa)}>{'\uD83D\uDEAB'}</button>
               </div>
             </td>
-          )}
+          ) : etapasEstado === 'ANULADO' ? (
+            <td data-field="acciones">
+              <div className="action-buttons">
+                <button
+                  type="button"
+                  className="btn-icon btn-edit"
+                  title="Reactivar etapa"
+                  aria-label={`Reactivar etapa ${etapa.nombre}`}
+                  onClick={() => handleRestoreRecord({
+                    entityName: 'Etapa',
+                    restore: (motivo) => changeEtapaState(etapa.id, 'ACTIVO', motivo),
+                    refresh: refreshCultivoDetalleData,
+                  })}
+                >
+                  {'\u21BB'}
+                </button>
+              </div>
+            </td>
+          ) : null}
         </tr>
       )
     })
@@ -3518,7 +3566,7 @@ export default function AdminPanel() {
                     <th>Nombre</th>
                     <th>Ubicación</th>
                     <th>Cultivos activos</th>
-                    {fincasEstado === 'ACTIVO' && <th>Acciones</th>}
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3557,7 +3605,7 @@ export default function AdminPanel() {
                           <td data-field="nombre">{finca.nombre}</td>
                           <td data-field="ubicacion">{finca.ubicacion || '--'}</td>
                           <td data-field="cultivos">{cultivosActivos}</td>
-                          {fincasEstado === 'ACTIVO' && (
+                          {fincasEstado === 'ACTIVO' ? (
                             <td data-field="acciones" onClick={(e) => e.stopPropagation()}>
                               <div className="action-buttons">
                                 <button
@@ -3575,6 +3623,27 @@ export default function AdminPanel() {
                                   onClick={() => handleDeleteFinca(finca.id)}
                                 >
                                   {'\uD83D\uDCC2'}
+                                </button>
+                              </div>
+                            </td>
+                          ) : (
+                            <td data-field="acciones" onClick={(e) => e.stopPropagation()}>
+                              <div className="action-buttons">
+                                <button
+                                  type="button"
+                                  className="btn-icon btn-edit"
+                                  title="Reactivar finca"
+                                  aria-label={`Reactivar finca ${finca.nombre}`}
+                                  onClick={() => handleRestoreRecord({
+                                    entityName: 'Finca',
+                                    restore: (motivo) => changeFincaState(finca.id, 'ACTIVO', motivo),
+                                    refresh: async () => {
+                                      setFincasRefresh((current) => current + 1)
+                                      await fetchFincasSelectorOptions()
+                                    },
+                                  })}
+                                >
+                                  {'\u21BB'}
                                 </button>
                               </div>
                             </td>
@@ -3628,7 +3697,7 @@ export default function AdminPanel() {
                     <th>Email</th>
                     <th>Contraseña</th>
                     <th>Rol</th>
-                    {usuariosEstado === 'ACTIVO' && <th>Acciones</th>}
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3651,7 +3720,7 @@ export default function AdminPanel() {
                         <td data-field="email">{usuario.email}</td>
                         <td data-field="password">{usuario.password}</td>
                         <td data-field="rol">{usuario.rol}</td>
-                        {usuariosEstado === 'ACTIVO' && (
+                        {usuariosEstado === 'ACTIVO' ? (
                           <td data-field="acciones">
                             <div className="action-buttons">
                               <button
@@ -3675,6 +3744,31 @@ export default function AdminPanel() {
                                 }}
                               >
                                 {'\uD83D\uDD12'}
+                              </button>
+                            </div>
+                          </td>
+                        ) : (
+                          <td data-field="acciones">
+                            <div className="action-buttons">
+                              <button
+                                type="button"
+                                className="btn-icon btn-edit"
+                                title="Reactivar usuario"
+                                aria-label={`Reactivar usuario ${usuario.nombre}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRestoreRecord({
+                                    entityName: 'Usuario',
+                                    restore: (motivo) => changeUserState(usuario.id, 'ACTIVO', motivo),
+                                    refresh: async () => {
+                                      const response = await fetchUsers(usuariosEstado)
+                                      if (!response.success) throw new Error(response.message || 'No se pudo actualizar la lista de usuarios')
+                                      setUsers(response.data)
+                                    },
+                                  })
+                                }}
+                              >
+                                {'\u21BB'}
                               </button>
                             </div>
                           </td>
@@ -3802,7 +3896,7 @@ export default function AdminPanel() {
                     <th>Fecha Final</th>
                     <th>Etapa Actual</th>
                     <th>Estado</th>
-                    {cultivosEstado === 'ACTIVO' && <th>Acciones</th>}
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3836,7 +3930,7 @@ export default function AdminPanel() {
                             })()
                           }
                         </td>
-                        {cultivosEstado === 'ACTIVO' && (
+                        {cultivosEstado === 'ACTIVO' ? (
                           <td data-field="acciones">
                             <div className="action-buttons">
                               <button
@@ -3857,6 +3951,30 @@ export default function AdminPanel() {
                                 }}
                               >
                                 {'\uD83D\uDCC2'}
+                              </button>
+                            </div>
+                          </td>
+                        ) : (
+                          <td data-field="acciones">
+                            <div className="action-buttons">
+                              <button
+                                type="button"
+                                className="btn-icon btn-edit"
+                                title="Reactivar cultivo"
+                                aria-label={`Reactivar cultivo ${c.nombre}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRestoreRecord({
+                                    entityName: 'Cultivo',
+                                    restore: (motivo) => changeCultivoState(c.id, 'ACTIVO', motivo),
+                                    refresh: async () => {
+                                      await fetchCultivosData(fincaId)
+                                      setFincasRefresh((current) => current + 1)
+                                    },
+                                  })
+                                }}
+                              >
+                                {'\u21BB'}
                               </button>
                             </div>
                           </td>
@@ -3959,7 +4077,7 @@ export default function AdminPanel() {
                     <table className="data-table">
                       <thead>
                         <tr className="table-title-row">
-                          <th colSpan={etapasEstado === 'ACTIVO' && isSelectedCultivoActivo ? 6 : 5}>Etapas Registradas</th>
+                          <th colSpan={etapasEstado === 'ANULADO' || (etapasEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 6 : 5}>Etapas Registradas</th>
                         </tr>
                         <tr>
                           <th>Nombre</th>
@@ -3967,7 +4085,7 @@ export default function AdminPanel() {
                           <th>Fecha Inicio</th>
                           <th>Fecha Final</th>
                           <th>Estado</th>
-                          {etapasEstado === 'ACTIVO' && isSelectedCultivoActivo && <th>Acciones</th>}
+                          {(etapasEstado === 'ANULADO' || (etapasEstado === 'ACTIVO' && isSelectedCultivoActivo)) && <th>Acciones</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -4017,7 +4135,7 @@ export default function AdminPanel() {
                     <table className="data-table">
                       <thead>
                         <tr className="table-title-row">
-                          <th colSpan={detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo ? 6 : 5}>Cosechas Realizadas</th>
+                          <th colSpan={detalleCosechasEstado === 'ANULADO' || (detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 6 : 5}>Cosechas Realizadas</th>
                         </tr>
                         <tr>
                           <th>Fecha</th>
@@ -4025,19 +4143,19 @@ export default function AdminPanel() {
                           <th>Unidad Medida</th>
                           <th>Precio</th>
                           <th>Tipo Precio</th>
-                          {detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo && <th>Acciones</th>}
+                          {(detalleCosechasEstado === 'ANULADO' || (detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo)) && <th>Acciones</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {isLoadingDetalleCosechas ? (
                           <tr className="data-item">
-                            <td colSpan={detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo ? 6 : 5} style={{ textAlign: 'center' }}>
+                            <td colSpan={detalleCosechasEstado === 'ANULADO' || (detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 6 : 5} style={{ textAlign: 'center' }}>
                               Cargando cosechas...
                             </td>
                           </tr>
                         ) : filteredCosechas.length === 0 ? (
                           <tr className="data-item">
-                            <td colSpan={detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo ? 6 : 5} style={{ textAlign: 'center' }}>
+                            <td colSpan={detalleCosechasEstado === 'ANULADO' || (detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 6 : 5} style={{ textAlign: 'center' }}>
                               No se encontraron registros asociados.
                             </td>
                           </tr>
@@ -4049,7 +4167,7 @@ export default function AdminPanel() {
                               <td data-field="unidad">{cosecha.unidad || cosecha.unidad_medida || cosecha.unidad?.nombre || cosecha.unidadMedida}</td>
                               <td data-field="precio">{formatPrecioValue(cosecha.precio || cosecha.precio_unitario)}</td>
                               <td data-field="tipo-precio">{cosecha.tipoPrecio || cosecha.tipoprecio || cosecha.tipoPrecio?.nombre || cosecha.tipo_precio || cosecha.tipoPrecioId || cosecha.tipoprecioid || ''}</td>
-                              {detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo && (
+                              {detalleCosechasEstado === 'ACTIVO' && isSelectedCultivoActivo ? (
                                 <td data-field="acciones">
                                   <div className="action-buttons">
                                     <button type="button" className="btn-icon btn-edit" title="Editar" onClick={() => handleOpenEditCosecha(cosecha)}>
@@ -4060,7 +4178,25 @@ export default function AdminPanel() {
                                     </button>
                                   </div>
                                 </td>
-                              )}
+                              ) : detalleCosechasEstado === 'ANULADO' ? (
+                                <td data-field="acciones">
+                                  <div className="action-buttons">
+                                    <button
+                                      type="button"
+                                      className="btn-icon btn-edit"
+                                      title="Reactivar cosecha"
+                                      aria-label={`Reactivar cosecha del ${formatDateValue(cosecha.fechaCosecha || cosecha.fecha_cosecha || cosecha.fechacosecha || cosecha.fecha)}`}
+                                      onClick={() => handleRestoreRecord({
+                                        entityName: 'Cosecha',
+                                        restore: (motivo) => changeCosechaState(cosecha.id, 'ACTIVO', motivo),
+                                        refresh: refreshCultivoDetalleData,
+                                      })}
+                                    >
+                                      {'\u21BB'}
+                                    </button>
+                                  </div>
+                                </td>
+                              ) : null}
                             </tr>
                           ))
                         )}
@@ -4163,7 +4299,7 @@ export default function AdminPanel() {
                     <table className="data-table costos-table">
                       <thead>
                         <tr className="table-title-row">
-                          <th colSpan={detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo ? 9 : 8}>Costos Registrados del Cultivo</th>
+                          <th colSpan={detalleCostosEstado === 'ANULADO' || (detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 9 : 8}>Costos Registrados del Cultivo</th>
                         </tr>
                         <tr>
                           <th>Fecha</th>
@@ -4174,25 +4310,25 @@ export default function AdminPanel() {
                           <th>Info Adicional</th>
                           <th>Valor</th>
                           <th>Estado</th>
-                          {detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo && <th>Acciones</th>}
+                          {(detalleCostosEstado === 'ANULADO' || (detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo)) && <th>Acciones</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {isLoadingDetalleCostos ? (
                           <tr>
-                            <td colSpan={detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
+                            <td colSpan={detalleCostosEstado === 'ANULADO' || (detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
                               Cargando costos del cultivo...
                             </td>
                           </tr>
                         ) : detallesCostosOrdenados.length === 0 ? (
                           <tr>
-                            <td colSpan={detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
+                            <td colSpan={detalleCostosEstado === 'ANULADO' || (detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
                               No se encontraron registros asociados.
                             </td>
                           </tr>
                         ) : visibleCostos.length === 0 ? (
                           <tr>
-                            <td colSpan={detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
+                            <td colSpan={detalleCostosEstado === 'ANULADO' || (detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo) ? 9 : 8} style={{ textAlign: 'center', padding: '20px' }}>
                               No se encontraron costos con los filtros aplicados.
                             </td>
                           </tr>
@@ -4303,7 +4439,7 @@ export default function AdminPanel() {
                                     {estadoLabel}
                                   </span>
                                 </td>
-                                {detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo && (
+                                {detalleCostosEstado === 'ACTIVO' && isSelectedCultivoActivo ? (
                                   <td data-field="acciones">
                                     <div className="action-buttons">
                                       <button
@@ -4330,7 +4466,31 @@ export default function AdminPanel() {
                                       </button>
                                     </div>
                                   </td>
-                                )}
+                                ) : detalleCostosEstado === 'ANULADO' ? (
+                                  <td data-field="acciones">
+                                    <div className="action-buttons">
+                                      <button
+                                        type="button"
+                                        className="btn-icon btn-edit"
+                                        title="Reactivar costo"
+                                        aria-label={`Reactivar costo ${costo.id}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleRestoreRecord({
+                                            entityName: 'Costo',
+                                            restore: (motivo) => changeCostoState(costo.id, 'ACTIVO', motivo),
+                                            refresh: async () => {
+                                              await refreshCultivoDetalleData()
+                                              setFincasRefresh((current) => current + 1)
+                                            },
+                                          })
+                                        }}
+                                      >
+                                        {'\u21BB'}
+                                      </button>
+                                    </div>
+                                  </td>
+                                ) : null}
                               </tr>
                             )
                           })
@@ -4667,7 +4827,7 @@ export default function AdminPanel() {
                     <th>Descripción</th>
                     <th>Valor</th>
                     <th>Estado de Pago</th>
-                    {costosGeneralesEstado === 'ACTIVO' && <th>Acciones</th>}
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4718,7 +4878,7 @@ export default function AdminPanel() {
                           <td data-field="estado_pago">
                             <span className={estadoClass}>{costo.estado_pago || '--'}</span>
                           </td>
-                          {costosGeneralesEstado === 'ACTIVO' && (
+                          {costosGeneralesEstado === 'ACTIVO' ? (
                             <td data-field="acciones">
                               <div className="action-buttons">
                                 <button type="button" className="btn-icon btn-edit" title="Editar" onClick={(event) => {
@@ -4732,6 +4892,30 @@ export default function AdminPanel() {
                                   handleDeleteCosto(costo)
                                 }}>
                                   {'\uD83D\uDEAB'}
+                                </button>
+                              </div>
+                            </td>
+                          ) : (
+                            <td data-field="acciones">
+                              <div className="action-buttons">
+                                <button
+                                  type="button"
+                                  className="btn-icon btn-edit"
+                                  title="Reactivar costo"
+                                  aria-label={`Reactivar costo ${costo.id}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleRestoreRecord({
+                                      entityName: 'Costo',
+                                      restore: (motivo) => changeCostoState(costo.id, 'ACTIVO', motivo),
+                                      refresh: async () => {
+                                        const data = await fetchCostosPorFinca(Number(fincaId))
+                                        setCostosGenerales(Array.isArray(data) ? data : [])
+                                      },
+                                    })
+                                  }}
+                                >
+                                  {'\u21BB'}
                                 </button>
                               </div>
                             </td>
