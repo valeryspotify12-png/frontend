@@ -14,6 +14,7 @@ import ReasonModal from '../components/ReasonModal'
 import { StateFilterMenu } from '../components/StateFilters'
 import { clearRentabilidadCharts, updateAdminDashboardCharts, updateRentabilidadCharts } from './admin/adminCharts'
 import { AdminReportTable } from './admin/AdminReportViews'
+import { exportReportToExcel, exportReportToPdf } from '../utils/reportExport'
 import '../styles/dashboard.css'
 import '../styles/admin-panel.css'
 import { fetchFincas, createFinca, updateFinca, deleteFinca, changeFincaState } from '../services/fincaService'
@@ -449,7 +450,6 @@ export default function AdminPanel() {
   const dynamicModalInitialData = modalInitialData ?? memoizedModalInitialData
 
   // Refs para elementos DOM y gráficos.
-  const reportRef = useRef(null)
   const dashboardRequestIdRef = useRef(0)
   const cpRef = useRef(null)
   const ccRef = useRef(null)
@@ -3149,32 +3149,47 @@ export default function AdminPanel() {
 
   // (openReport definido más abajo con carga de datos)
 
-  // Exporta el reporte visible a PDF usando html2pdf.
-  const exportPdf = async () => {
-    if (!reportRef.current) return
-    await reportService.registerReportExport(reportType, 'PDF', buildFiltersObject())
-    const html2pdf = (await import('html2pdf.js')).default
-    const opt = {
-      margin: 10,
-      filename: `reporte-${reportType}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+  const buildReportExportFilters = () => {
+    const optionLabel = (options, id, fallbackPrefix) => {
+      const selected = options.find((option) => String(option.id) === String(id))
+      return selected ? selected.nombre : `${fallbackPrefix} ${id}`
     }
-    html2pdf().set(opt).from(reportRef.current).save()
+    const filters = []
+    if (fincaId) filters.push({ label: 'Finca', value: optionLabel(fincasData, fincaId, 'ID') })
+    if (filtroCultivo) filters.push({ label: 'Cultivo', value: optionLabel(filterOptions.cultivos, filtroCultivo, 'ID') })
+    if (filtroCategoriaCosto) filters.push({ label: 'Categoría', value: optionLabel(filterOptions.categorias, filtroCategoriaCosto, 'ID') })
+    if (filtroSubcategoriaCosto) filters.push({ label: 'Subcategoría', value: optionLabel(filterOptions.subcategorias, filtroSubcategoriaCosto, 'ID') })
+    if (filtroUsuario) {
+      const usuario = filterOptions.usuarios.find((option) => String(option.id) === String(filtroUsuario))
+      filters.push({ label: 'Usuario', value: usuario ? `${usuario.nombre} ${usuario.apellidos || ''}`.trim() : `ID ${filtroUsuario}` })
+    }
+    if (filtroEstadoCultivo) filters.push({ label: 'Estado del cultivo', value: optionLabel(filterOptions.estados, filtroEstadoCultivo, 'ID') })
+    if (filtroFechaInicio) filters.push({ label: 'Desde', value: filtroFechaInicio })
+    if (filtroFechaFin) filters.push({ label: 'Hasta', value: filtroFechaFin })
+    return filters
   }
 
-  // Exporta el reporte visible a Excel usando XLSX.
-  const exportExcel = async () => {
-    if (!reportRef.current) return
-    await reportService.registerReportExport(reportType, 'EXCEL', buildFiltersObject())
-    const XLSX = await import('xlsx')
-    const table = reportRef.current.querySelector('.data-table')
-    if (!table) return
-    const ws = XLSX.utils.table_to_sheet(table)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, `Reporte-${reportType}`)
-    XLSX.writeFile(wb, `reporte-${reportType}.xlsx`)
+  const exportReport = async (format) => {
+    if (!reportType || !Array.isArray(reportData) || isLoadingReport) {
+      showNotification('Genera un reporte antes de exportarlo', 'error')
+      return
+    }
+
+    try {
+      const filters = buildReportExportFilters()
+      const auditFormat = format === 'PDF' ? 'PDF' : 'EXCEL'
+      await reportService.registerReportExport(reportType, auditFormat, buildFiltersObject(reportType))
+
+      if (format === 'PDF') {
+        await exportReportToPdf(reportType, reportData, filters)
+      } else {
+        await exportReportToExcel(reportType, reportData, filters)
+      }
+      showNotification(`Reporte exportado a ${format}`, 'success')
+    } catch (error) {
+      console.error(`Error al exportar el reporte a ${format}:`, error)
+      showNotification(`No se pudo exportar el reporte a ${format}`, 'error')
+    }
   }
 
   const recentActivities = dashboardData?.recentActivities || []
@@ -4502,7 +4517,6 @@ export default function AdminPanel() {
               </div>
               <div
                 id="reporteContenedor"
-                ref={reportRef}
                 className="reporte-contenedor"
                 style={{ display: reportVisible ? 'block' : 'none' }}
                 data-last-reporte={reportType || ''}
@@ -4517,10 +4531,10 @@ export default function AdminPanel() {
                       <AdminReportTable fincaId={fincaId} reportType={reportType} reportData={reportData} />
                     )}
                     <div className="reporte-exportar">
-                      <button type="button" className="btn-exportar pdf" onClick={() => exportPdf()}>
+                      <button type="button" className="btn-exportar pdf" disabled={isLoadingReport || !Array.isArray(reportData)} onClick={() => exportReport('PDF')}>
                         Exportar PDF
                       </button>
-                      <button type="button" className="btn-exportar excel" onClick={() => exportExcel()}>
+                      <button type="button" className="btn-exportar excel" disabled={isLoadingReport || !Array.isArray(reportData)} onClick={() => exportReport('Excel')}>
                         Exportar Excel
                       </button>
                     </div>

@@ -2405,6 +2405,12 @@ html.dark-mode .dynamic-modal-content select {
     border-color: var(--border-color) !important;
 }
 
+html.dark-mode .dynamic-modal-content select {
+    background-color: #fff !important;
+    color: #3d3c3c !important;
+    -webkit-text-fill-color: #3d3c3c !important;
+}
+
 html.dark-mode .dynamic-modal-content input::placeholder,
 html.dark-mode .dynamic-modal-content textarea::placeholder {
     color: var(--text-light) !important;
@@ -2412,8 +2418,8 @@ html.dark-mode .dynamic-modal-content textarea::placeholder {
 }
 
 html.dark-mode .dynamic-modal-content option {
-    background-color: var(--bg-white) !important;
-    color: var(--text-dark) !important;
+    background-color: #fff !important;
+    color: #3d3c3c !important;
 }
 
 html.dark-mode .dynamic-modal-content .dynamic-modal-cancel {

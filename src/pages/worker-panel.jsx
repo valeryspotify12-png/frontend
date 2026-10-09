@@ -1337,7 +1337,7 @@ export default function WorkerPanel() {
     if (filtered.length === 0) {
       return [
         <tr key="no-etapas" className="data-item">
-          <td colSpan={6} style={{ textAlign: 'center', color: '#666' }}>
+          <td colSpan={etapasEstado === 'ACTIVO' ? 6 : 5} style={{ textAlign: 'center', color: '#666' }}>
             No se encontraron etapas registradas.
           </td>
         </tr>,
@@ -1359,16 +1359,18 @@ export default function WorkerPanel() {
               {etapa.estado ? etapa.estado.replace(/-/g, ' ') : '--'}
             </span>
           </td>
-          <td data-field="acciones">
-            <div className="action-buttons">
-              <button type="button" className="btn-icon btn-edit" title="Editar" onClick={() => handleOpenEditEtapa(etapa)}>
-                ✏️
-              </button>
-              <button type="button" className="btn-icon btn-delete" title="Anular" onClick={() => handleDeleteEtapa(etapa)}>
-                {'\uD83D\uDEAB'}
-              </button>
-            </div>
-          </td>
+          {etapasEstado === 'ACTIVO' && (
+            <td data-field="acciones">
+              <div className="action-buttons">
+                <button type="button" className="btn-icon btn-edit" title="Editar" onClick={() => handleOpenEditEtapa(etapa)}>
+                  ✏️
+                </button>
+                <button type="button" className="btn-icon btn-delete" title="Anular" onClick={() => handleDeleteEtapa(etapa)}>
+                  {'\uD83D\uDEAB'}
+                </button>
+              </div>
+            </td>
+          )}
         </tr>
       )
     })
