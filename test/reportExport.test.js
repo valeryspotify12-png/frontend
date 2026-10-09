@@ -56,11 +56,12 @@ test('creates a workbook with separate summary and complete detail sheets', asyn
   const details = workbook.Sheets.Detalle
   const range = XLSX.utils.decode_range(details['!ref'])
 
-  assert.deepEqual(workbook.SheetNames, ['Resumen', 'Detalle'])
-  assert.equal(details.A5.v, 'Cultivo 1')
-  assert.equal(details.A1254.v, 'Cultivo 1250')
-  assert.equal(range.e.r, 1253)
-  assert.equal(details['!autofilter'].ref, 'A4:F1254')
+  assert.deepEqual(workbook.SheetNames, ['Detalle', 'Resumen'])
+  assert.equal(details.A1.v, 'Cultivo')
+  assert.equal(details.A2.v, 'Cultivo 1')
+  assert.equal(details.A1251.v, 'Cultivo 1250')
+  assert.equal(range.e.r, 1250)
+  assert.equal(details['!autofilter'].ref, 'A1:F1251')
   assert.equal(workbook.Sheets.Resumen.B5.v, 'Monterey')
 })
 

@@ -267,13 +267,8 @@ export async function buildReportWorkbook(reportType, reportData, filters = []) 
     if (!cell) return
     cell.z = item.type === 'currency' ? '"$"#,##0' : item.type === 'percent' ? '0.0"%"' : '#,##0.##'
   })
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen')
-
-  const headerRow = 3
+  const headerRow = 0
   const detailRows = [
-    [report.title],
-    ['Generado', generatedAt],
-    [],
     report.columns.map((column) => column.header),
     ...report.rows.map((row) => report.columns.map((column) => row[column.key])),
   ]
@@ -299,6 +294,7 @@ export async function buildReportWorkbook(reportType, reportData, filters = []) 
     }),
   }
   XLSX.utils.book_append_sheet(workbook, detailSheet, 'Detalle')
+  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen')
   return workbook
 }
 
